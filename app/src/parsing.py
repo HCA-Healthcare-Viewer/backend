@@ -1,4 +1,7 @@
 import json
+import time
+
+from constants import segments
 
 class HL7Segment:
     def __init__(self, segment_name):
@@ -6,37 +9,34 @@ class HL7Segment:
         self.fields = {}
 
     def add_field(self, field_name, description, value=None):
-        # Initialize the subfields and repeating fields
-        subfields = {}
-        repeating_data = []
+        if field_name == "MSH-2":
+            self.fields[field_name] = {
+                "Field Description": description,
+                "Field Value": value if value else None,
+                "Subfields": None
+            }
+            return
 
-        # Check if value exists
+        subfields = {}
         if value:
-            # Split by ^ to get subfields
             subfields_values = value.split('^')
             for i, subfield in enumerate(subfields_values, 1):
-                subfield_key = f"{field_name}.{i}"  # Create a unique identifier for subfields (e.g., 5.1, 5.2)
-                subfields[subfield_key] = subfield
-
-            # If there is repeating data (separated by ~), split the field into a list
-            repeating_data = [item for item in value.split('~')]
-
+                subfield_key = f"{field_name}.{i}"
+                repeating_values = subfield.split('~')
+                subfields[subfield_key] = repeating_values if len(repeating_values) > 1 else subfield
         else:
             subfields = None
 
-        # Store the main field value, subfields, and repeating data
         self.fields[field_name] = {
             "Field Description": description,
             "Field Value": value if value else None,
-            "Subfields": subfields if subfields else None,
-            "Repeating Data": repeating_data if repeating_data else None
+            "Subfields": subfields if subfields else None
         }
 
     def __repr__(self):
         return f"Segment: {self.segment_name}, Fields: {self.fields}"
 
     def to_dict(self):
-        # Convert HL7Segment to a dictionary to make it serializable
         return {
             "name": self.segment_name,
             "fields": self.fields
@@ -52,114 +52,106 @@ class HL7Message:
     def __repr__(self):
         return f"HL7Message: {self.segments}"
 
-# Define the segments and fields with descriptions
-segments = {
-    "MSH": {
-        "MSH-1": "Field Separator",
-        "MSH-2": "Encoding Characters",
-        "MSH-3": "Sending Application",
-        "MSH-4": "Sending Facility",
-        "MSH-5": "Receiving Application",
-        "MSH-6": "Receiving Facility",
-        "MSH-7": "Date/Time of Message",
-        "MSH-8": "Security",
-        "MSH-9": "Message Type",
-        "MSH-10": "Message Control ID",
-        "MSH-11": "Processing ID",
-        "MSH-12": "Version ID",
-    },
-    "EVN": {
-        "EVN-1": "Event Type Code",
-        "EVN-2": "Recorded Date/Time",
-        "EVN-3": "Date/Time Planned Event",
-        "EVN-4": "Event Reason Code",
-        "EVN-5": "Operator ID",
-        "EVN-6": "Event Occurred",
-    },
-    "PID": {
-        "PID-1": "Set ID - PID",
-        "PID-2": "Patient ID",
-        "PID-3": "Patient Identifier List",
-        "PID-4": "Alternate Patient ID - PID",
-        "PID-5": "Patient Name",
-        "PID-6": "Mother's Maiden Name",
-        "PID-7": "Date/Time of Birth",
-        "PID-8": "Administrative Sex",
-        "PID-9": "Patient Alias",
-        "PID-10": "Race",
-        "PID-11": "Patient Address",
-        "PID-12": "County Code",
-        "PID-13": "Phone Number - Home",
-        "PID-14": "Phone Number - Business",
-        "PID-15": "Primary Language",
-        "PID-16": "Marital Status",
-        "PID-17": "Religion",
-        "PID-18": "Patient Account Number",
-    },
-    # You can define other segments like PV1, OBX, etc. similarly...
-}
+    def to_dict(self):
+        return {segment_name: segment.to_dict() for segment_name, segment in self.segments.items()}
 
-# Parse a message and map it to the predefined structure
+
+    def get_message_control_id(self):
+        # Extract Message Control ID from MSH-10 if available
+        if "MSH" in self.segments and "MSH-10" in self.segments["MSH"].fields:
+            return self.segments["MSH"].fields["MSH-10"]["Field Value"]
+        return None
+
 def parse_hl7_message(hl7_message):
-    # Create a new HL7Message object
     message_obj = HL7Message()
-
-    # Split the message by lines (using '\n' as delimiter)
     lines = hl7_message.split("\n")
 
-    # Initialize current segment name
-    current_segment_name = None
-    current_segment = None
-
     for line in lines:
-        # Skip empty lines
         if not line.strip():
             continue
 
-        # Split the line by '\r' to separate segments in each line
         segments_data = line.split("\r")
 
         for segment_line in segments_data:
-            # Get the segment type (first three characters)
             segment_type = segment_line[:3]
 
-            # Check if this line is a new segment
             if segment_type in segments:
-                # Create a new HL7Segment for this segment
-                current_segment_name = segment_type
                 current_segment = HL7Segment(segment_type)
 
-                # Add fields to this segment based on the predefined structure
-                fields = segment_line.split("|")
+                if segment_type != "MSH":
+                    fields = segment_line.split("|")[1:]
+                else:
+                    field_separator = segment_line[3]
+                    delimiters = segment_line[4:8]
+
+                    current_segment.add_field("MSH-1", "Field Separator", field_separator)
+                    current_segment.add_field("MSH-2", "Encoding Characters", delimiters)
+
+                    fields = segment_line.split("|")[2:]
+
+                expected_fields = segments[current_segment.segment_name].keys()
                 for i, field in enumerate(fields):
-                    field_name = f"{current_segment_name}-{i+1}"
-                    if field_name in segments[current_segment_name]:
-                        field_description = segments[current_segment_name][field_name]
+                    field_name = f"{current_segment.segment_name}-{i+3}" if current_segment.segment_name == "MSH" else f"{current_segment.segment_name}-{i+1}"
+
+                    if field_name in expected_fields:
+                        field_description = segments[current_segment.segment_name].get(field_name, "No Description")
                         current_segment.add_field(field_name, field_description, field)
 
-                # Add the segment to the message
-                message_obj.add_segment(current_segment_name, current_segment)
+                message_obj.add_segment(current_segment.segment_name, current_segment)
 
     return message_obj
 
-# Sample HL7 message (using '\n' to separate lines and '\r' for segment separation)
-hl7_message = """MSH|^~\&||HOSP_WS|||202502261022||ORU^R01^NURAS|508065.6796364|D|2.1\rEVN|A01|202502260903|||EFD.AJ^JORGENSEN^AMANDA^^^^|202502260903\rPID|1||W000033049|W23038|mairi^ghita^26^^^^L||19900505|F|^^^^^||^^^^^^^^|||||||W00000331191"""
+def parse_hl7_file(file_path):
+    # To store all parsed HL7 messages with their IDs
+    parsed_messages = {}
 
-# Parse the message
-message_obj = parse_hl7_message(hl7_message)
+    with open(file_path, 'r') as hl7_file:
+        current_message = []
+        for line in hl7_file:
+            # Start of a new message
+            if line.startswith("MSH"):
+                if current_message:
+                    # Join and parse the current message if there's any content
+                    full_message = "\n".join(current_message)
+                    parsed_message = parse_hl7_message(full_message)
+                    
+                    # Use the Message Control ID or a fallback ID
+                    message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages)+1}"
+                    parsed_messages[message_id] = parsed_message.to_dict()
+
+                # Start a new message
+                current_message = [line.strip()]
+            else:
+                current_message.append(line.strip())
+        
+        # Handle the last message after the loop
+        if current_message:
+            full_message = "\n".join(current_message)
+            parsed_message = parse_hl7_message(full_message)
+            message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages)+1}"
+            parsed_messages[message_id] = parsed_message.to_dict()
+
+    return parsed_messages
 
 def custom_dumps(obj, indent=4):
-    # Helper function to handle nested dictionaries and HL7Segment objects
     def recursive_dict(obj):
         if isinstance(obj, dict):
             return {key: recursive_dict(value) if isinstance(value, (dict, HL7Segment)) else value
                     for key, value in obj.items()}
         elif isinstance(obj, HL7Segment):
-            return obj.to_dict()  # Convert HL7Segment to dict for serialization
+            return obj.to_dict()
         return obj
 
-    # Recursively process the dictionary and serialize
     return json.dumps(recursive_dict(obj), indent=indent)
 
-# Example usage
-print(custom_dumps(message_obj.__dict__, indent=4))
+start_time = time.time()
+print("Parsing HL7 messages...", flush=True)
+parsed_hl7_messages = parse_hl7_file('data/source_hl7_messages_v2.hl7')
+print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
+
+# Write to JSON file with IDs as keys
+start_time = time.time()
+print("Writing parsed HL7 messages to JSON...", flush=True)
+with open('data/parsed_hl7_messages.json', 'w') as json_file:
+    json.dump(parsed_hl7_messages, json_file, indent=2)
+print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
