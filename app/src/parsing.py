@@ -1,66 +1,13 @@
-import json
-import time
+import json, time
 
-from constants import segments
+from app.src.classes import HL7Segment, HL7Message
+from app.src.constants import segments
+from app.src.utils import clean_null_entries
 
-class HL7Segment:
-    def __init__(self, segment_name):
-        self.segment_name = segment_name
-        self.fields = {}
+# from classes import HL7Message, HL7Segment
+# from constants import segments
+# from utils import clean_null_entries
 
-    def add_field(self, field_name, description, value=None):
-        if field_name == "MSH-2":
-            self.fields[field_name] = {
-                "Field Description": description,
-                "Field Value": value if value else None,
-                "Subfields": None
-            }
-            return
-
-        subfields = {}
-        if value:
-            subfields_values = value.split('^')
-            for i, subfield in enumerate(subfields_values, 1):
-                subfield_key = f"{field_name}.{i}"
-                repeating_values = subfield.split('~')
-                subfields[subfield_key] = repeating_values if len(repeating_values) > 1 else subfield
-        else:
-            subfields = None
-
-        self.fields[field_name] = {
-            "Field Description": description,
-            "Field Value": value if value else None,
-            "Subfields": subfields if subfields else None
-        }
-
-    def __repr__(self):
-        return f"Segment: {self.segment_name}, Fields: {self.fields}"
-
-    def to_dict(self):
-        return {
-            "name": self.segment_name,
-            "fields": self.fields
-        }
-
-class HL7Message:
-    def __init__(self):
-        self.segments = {}
-
-    def add_segment(self, segment_name, segment):
-        self.segments[segment_name] = segment
-
-    def __repr__(self):
-        return f"HL7Message: {self.segments}"
-
-    def to_dict(self):
-        return {segment_name: segment.to_dict() for segment_name, segment in self.segments.items()}
-
-
-    def get_message_control_id(self):
-        # Extract Message Control ID from MSH-10 if available
-        if "MSH" in self.segments and "MSH-10" in self.segments["MSH"].fields:
-            return self.segments["MSH"].fields["MSH-10"]["Field Value"]
-        return None
 
 def parse_hl7_message(hl7_message):
     message_obj = HL7Message()
@@ -102,7 +49,6 @@ def parse_hl7_message(hl7_message):
     return message_obj
 
 def parse_hl7_file(file_path):
-    # To store all parsed HL7 messages with their IDs
     parsed_messages = {}
 
     with open(file_path, 'r') as hl7_file:
@@ -131,6 +77,7 @@ def parse_hl7_file(file_path):
             message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages)+1}"
             parsed_messages[message_id] = parsed_message.to_dict()
 
+
     return parsed_messages
 
 def custom_dumps(obj, indent=4):
@@ -146,12 +93,14 @@ def custom_dumps(obj, indent=4):
 
 start_time = time.time()
 print("Parsing HL7 messages...", flush=True)
-parsed_hl7_messages = parse_hl7_file('data/source_hl7_messages_v2.hl7')
+parsed_hl7_messages = parse_hl7_file('app/data/source_hl7_messages_v2.hl7')
+# for message_id, message in parsed_hl7_messages.items():
+#     parsed_hl7_messages[message_id] = clean_null_entries(message)
 print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
 
 # Write to JSON file with IDs as keys
 start_time = time.time()
 print("Writing parsed HL7 messages to JSON...", flush=True)
-with open('data/parsed_hl7_messages.json', 'w') as json_file:
+with open('app/data/parsed_messages.json', 'w') as json_file:
     json.dump(parsed_hl7_messages, json_file, indent=2)
 print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
