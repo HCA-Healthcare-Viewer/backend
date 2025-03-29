@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:46947bbd307300be76a45f130ec75ed6b2020465f76a3cb06235ba523dccb3a7"
+content_hash = "sha256:fc8d65646b3790513bb03a8110c10cbc77ccfa8d0056c08803db09badef121f7"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -272,12 +272,15 @@ files = [
 
 [[package]]
 name = "hl7"
-version = "0.4.5"
+version = "0.3.4"
 summary = "Python library parsing HL7 v2.x messages"
 groups = ["default"]
+dependencies = [
+    "six",
+]
 files = [
-    {file = "hl7-0.4.5-py2.py3-none-any.whl", hash = "sha256:f46bf7c165801fd40e8fcc9f2be41c5794415039adc97646aee7ee6b20ce8ccd"},
-    {file = "hl7-0.4.5.tar.gz", hash = "sha256:b6eb97499ebe236e00c3009d43e6b0f040de002df12a292fa5efbd2ce2a8a838"},
+    {file = "hl7-0.3.4-py2.py3-none-any.whl", hash = "sha256:522790b8e1eb0527fad778f07f7e49a2246c8261a2286d2ad516a200f447bf5d"},
+    {file = "hl7-0.3.4.tar.gz", hash = "sha256:888807f09f458a3fab0fe71016f6e7c3c9f21ac881c8d4889ffbe57b5883f104"},
 ]
 
 [[package]]
@@ -727,13 +730,12 @@ files = [
 
 [[package]]
 name = "six"
-version = "1.17.0"
-requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+version = "1.11.0"
 summary = "Python 2 and 3 compatibility utilities"
 groups = ["default"]
 files = [
-    {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
-    {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
+    {file = "six-1.11.0-py2.py3-none-any.whl", hash = "sha256:832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb"},
+    {file = "six-1.11.0.tar.gz", hash = "sha256:70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9"},
 ]
 
 [[package]]
