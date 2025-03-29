@@ -14,4 +14,4 @@ license = {text = "MIT"}
 distribution = false
 
 [tool.pdm.scripts]
-dev = "uvicorn app.src.main:app --reload"
+dev = "uvicorn app.main:app --reload"
