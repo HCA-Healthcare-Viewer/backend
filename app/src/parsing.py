@@ -147,7 +147,7 @@ def parse_file(file_path, deidentify=True, redact=True):
         lines = hl7_file.readlines()
     return parse_lines(lines, deidentify=True)
 
-def parse_content(file_content: str):
+def parse_content(file_content: str, deidentify=True, redact=True):
     lines = file_content.splitlines()
     return parse_lines(lines, deidentify=True, redact=False)
 
