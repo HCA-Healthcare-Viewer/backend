@@ -87,7 +87,6 @@ def adjust_datetime(messages):
 
                         # Skip parsing if the value is redacted (i.e., all asterisks)
                         if value and value == "*" * len(value):
-                            # print(f"Skipping redacted datetime field: {field_name} in message {message_id}", flush=True)
                             continue
 
                         if value:
@@ -165,10 +164,7 @@ def get_deidentified_address(message):
     Extract and deidentify relevant fields from the HL7 message.
     """
     # Extract relevant fields for deidentification
-    street = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.1", None)
-    city = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.3", None)
     state = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.4", None)
-    zip_code = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.5", None)
     mrn = message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None)
 
     # Deidentify the data
