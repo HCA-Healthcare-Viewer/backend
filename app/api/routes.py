@@ -1,24 +1,20 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List, Optional
-from app.src.parsing import parse_hl7_file
-import json
+from fastapi import APIRouter, HTTPException, UploadFile, File
+from app.src.parsing import parse_hl7_content  # make sure to import the new function
 
 router = APIRouter()
 
-@router.get("/get_json")
-async def get_json(file_path):
+@router.post("/get_json")
+async def get_json(file: UploadFile = File(...)):
     """
-    Endpoint to return a JSON response.
+    Endpoint to return a JSON response after parsing an uploaded HL7 file.
     """
     try:
-        return parse_hl7_file(file_path)
-    
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="File not found")
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Error decoding JSON")
+        file_contents = await file.read()
+        file_text = file_contents.decode("utf-8")  # adjust encoding if needed
+        parsed_data = parse_hl7_content(file_text)
+        return parsed_data
+
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Error decoding file")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-    ...

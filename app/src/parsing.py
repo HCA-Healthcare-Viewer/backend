@@ -42,7 +42,6 @@ def parse_message(hl7_message):
 
                     if field_name in expected_fields:
                         field_description = segments[current_segment.segment_name].get(field_name, "No Description")
-
                         current_segment.add_field(field_name, field_description, field)
 
                 message_obj.add_segment(current_segment.segment_name, current_segment)
@@ -90,6 +89,16 @@ def parse_file(file_path):
 
 
     return parsed_messages
+
+def parse_file(file_path):
+    with open(file_path, 'r') as hl7_file:
+        lines = hl7_file.readlines()
+    return parse_lines(lines)
+
+def parse_content(file_content: str):
+    lines = file_content.splitlines()
+    return parse_lines(lines)
+
 
 def custom_dumps(obj, indent=4):
     def recursive_dict(obj):
