@@ -1,13 +1,13 @@
 import json, time
 from datetime import datetime
 
-from app.src.classes import HL7Segment, HL7Message
-from app.src.constants import segments, state_codes
-from app.src.utils import clean_null_entries, create_message_summaries, adjust_datetime
+# from app.src.classes import HL7Segment, HL7Message
+# from app.src.constants import segments, ignored_subfield_ids
+# from app.src.utils import clean_null_entries, create_message_summaries, adjust_datetime
 
-# from classes import HL7Message, HL7Segment
-# from constants import segments, state_codes
-# from utils import clean_null_entries, create_message_summaries, adjust_datetime
+from classes import HL7Message, HL7Segment
+from constants import segments, ignored_subfield_ids
+from utils import clean_null_entries, create_message_summaries, adjust_datetime
 
 
 
@@ -24,22 +24,26 @@ def convert_to_age(birthdate_str, redact):
         return "90+" if redact and age >= 90 else str(age)
     return birthdate_str
 
-def redact_and_store_subfields(field_value, phi_data, redact):
-    """Redact each subfield value if redact flag is True and store original subfield in phi_data."""
+def redact_and_store_subfields(field_value, field_id, phi_data, redact):
+    """Redact each subfield value if redact flag is True, unless the subfield is in ignored_subfield_ids."""
+    
     if field_value:
         subfields = field_value.split("^")  # Assuming subfields are separated by '^'
         redacted_subfields = []
-        for subfield in subfields:
+        
+        for i, subfield in enumerate(subfields):
+            subfield_id = f"{field_id}.{i+1}"  # Create subfield ID (e.g., PID-5.1, PID-5.2, etc.)
             
-            if subfield in state_codes.keys(): continue
-
-            if redact and subfield and len(subfield) > 0:
+            if redact and subfield and len(subfield) > 0 and (subfield_id not in ignored_subfield_ids):
                 phi_data.append(subfield)
                 redacted_subfields.append(redact_phi_value(subfield))
+                # print(f"Redacting subfield {subfield_id}: {subfield}", flush=True)
             else:
                 redacted_subfields.append(subfield)
+
         return "^".join(redacted_subfields)
     return field_value
+
 
 def parse_message(hl7_message, redact_phi=False):
     message_obj = HL7Message()
@@ -79,19 +83,17 @@ def parse_message(hl7_message, redact_phi=False):
 
                         # Handle specific fields with PHI and redact subfields
                         if field_name == "PID-5":  # Name
-                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
                         elif field_name == "PID-7":  # Birthdate (convert to age)
-                            field = convert_to_age(field, redact_phi)
+                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
                         elif field_name == "PID-11":  # Address
-                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
                         elif field_name == "PID-13" or field_name == "PID-14":  # Phone numbers
-                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
                         elif field_name == "PID-19":  # SSN
-                            field = redact_and_store_subfields(field, phi_data, redact_phi)
-                        elif field_name == "PID-3":  # MRN
-                            field = redact_and_store_subfields(field, phi_data, redact_phi)
-                        elif field_name == "PID-18":  # ACC_NUMS
-                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
+                        elif field_name == "PID-18":  # MRN
+                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
 
                         current_segment.add_field(field_name, field_description, field)
 
@@ -109,7 +111,7 @@ def parse_message(hl7_message, redact_phi=False):
                             if original_value in subfield_value:
                                 subfields[subfield_key] = redact_phi_value(original_value)
 
-    return message_obj
+    return message_obj, phi_data
 
 
 def parse_lines(lines):
@@ -124,11 +126,11 @@ def parse_lines(lines):
                 full_message = "\n".join(current_message)
 
                 # Capture both parsed message and redacted PHI data
-                parsed_message = parse_message(full_message, redact_phi=False)
+                parsed_message, phi_data = parse_message(full_message, redact_phi=True)
                 message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
                 raw_messages[message_id] = full_message
                 parsed_messages[message_id] = parsed_message.to_dict()
-                # phi_data_all[message_id] = phi_data
+                phi_data_all[message_id] = phi_data
             current_message = [line.strip()]
         else:
             current_message.append(line.strip())
@@ -137,10 +139,10 @@ def parse_lines(lines):
         full_message = "\n".join(current_message)
 
         # Capture both parsed message and redacted PHI data
-        parsed_message = parse_message(full_message, redact_phi=False)
+        parsed_message, phi_data = parse_message(full_message, redact_phi=True)
         message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
         parsed_messages[message_id] = parsed_message.to_dict()
-        # phi_data_all[message_id] = phi_data
+        phi_data_all[message_id] = phi_data
 
     # Clean and adjust messages
     parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
@@ -148,9 +150,7 @@ def parse_lines(lines):
     parsed_messages = adjust_datetime(parsed_messages)
 
     raw_messages[message_id] = current_message
-
-    return parsed_messages # Return PHI data as well
-
+    return parsed_messages, raw_messages, phi_data_all  # Return PHI data as well
 
 def parse_file(file_path):
     with open(file_path, 'r') as hl7_file:
@@ -202,33 +202,43 @@ def sort_messages_datetime(file_path):
     print(json.dumps(phi_data_all, indent=2), flush=True)
 
 
-
+# for initial redact
 def redact_hl7_hpi(file_path):
     parsed, full, phi_data_all = parse_file(file_path)
 
     print(len(parsed))
     print(len(full), flush=True)
 
-    def get_msg_datetime(msg):
-        try:
-            msg_datetime_str = msg['summary'].get('MSG_DATETIME', None)
-            if msg_datetime_str:
-                return datetime.strptime(msg_datetime_str, "%Y-%m-%d %H:%M")  # Adjust format as needed
-        except (ValueError, KeyError) as e:
-            print(f"Error parsing datetime for message: {e}", flush=True)
-        
-        return datetime.min
+    # Iterate over each message id in phi_data_all
+    for message_id, phi_data in phi_data_all.items():
+        if message_id in full:
+            # Get the raw message
+            message = full[message_id]
 
-    sorted_messages = sorted(parsed.items(), key=lambda item: get_msg_datetime(item[1]))
-    in_order = [msg_id for msg_id, msg in sorted_messages]
-    sorted_full = {msg_id: full[msg_id] for msg_id in in_order if msg_id in full}
+            # Loop through each value in phi_data and redact it in the message
+            for phi_value in phi_data:
+                if phi_value in message:
+                    # Perform the string replacement (redact by replacing with asterisks)
+                    message = message.replace(phi_value, redact_phi_value(phi_value))
 
-    print(len(sorted_full))
+            # Update the full dictionary with the redacted message
+            full[message_id] = message
 
+    # After redacting, you can now save the redacted messages or process them further
+    with open('app/data/messages_redacted.txt', 'w') as redacted_file:
+        for msg_id, msg in full.items():
+            if isinstance(msg, list):
+                message_str = "\r".join(msg)
+            else:
+                message_str = msg
+            redacted_file.write(message_str + "\n")
+    
+    # print(f"Redaction complete. {len(full)} messages processed.")
 
+# Example call to redact HPI in the file
 
-# Example call
-# sort_messages_datetime('app/data/small.hl7')
+redact_hl7_hpi('app/data/big.hl7')
+
 
 
 
