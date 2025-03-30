@@ -6,6 +6,10 @@ def consistent_bday(dob, identifier):
     """
     Create a pseudo-random but consistent birthday based on the hashed identifier.
     """
+
+    if dob is None:
+        return None, None
+
     # Parse the year from the original dob
     year = datetime.datetime.strptime(dob, "%Y-%m-%d").year
 
@@ -28,8 +32,9 @@ def consistent_bday(dob, identifier):
     if today.month < dob_month or (today.month == dob_month and today.day < dob_day):
         age -= 1
 
-    if age < 0:
-        raise ValueError("Invalid date of birth: year cannot be in the future")
+    if age < 0: 
+        age = 0
+        new_dob = datetime.datetime.today().strftime("%Y-%m-%d")  # Set to today if future date
     elif age > 89:
         age = '90+'  # Cap age for privacy
 
@@ -45,11 +50,14 @@ def deidentify_person(first_name, last_name, dob, mrn):
     
     # Use the hash to select consistent indices for first and last names
     first_name_index = int(sha256_hash[:8], 16) % len(FIRST_NAMES)
-    last_name_index = int(sha256_hash[8:16], 16) % len(LAST_NAMES)
+    last_name_index = int(sha256_hash[8:14], 16) % len(LAST_NAMES)
+    mrn = int(sha256_hash[14:16], 16) % 1000000  # Assuming MRN is a 6-digit number
+    
     
     # Retrieve the unique first and last name
     unique_first_name = FIRST_NAMES[first_name_index]
     unique_last_name = LAST_NAMES[last_name_index]
+
     
     # Generate a consistent random birthday based on the identifier
     new_dob, age = consistent_bday(dob, identifier)
@@ -90,30 +98,14 @@ def consistent_address(street, city, state, zip_code, identifier):
     return new_street, new_city, state, new_zip_code
 
 
-def deidentify_address(street, city, state, zip_code, first_name, last_name, dob, mrn):
+def deidentify_address(street, city, state, zip_code, mrn):
     """
     De-identify the address based on personal information while keeping the state unchanged.
     """
     # Create a unique identifier based on first name, last name, dob, mrn, and the original address
-    identifier = f"{first_name}{last_name}{dob}{mrn}{street}{city}{zip_code}"
+    identifier = f"{mrn}"
     
     # De-identify the street, city, and zip code (keep state intact)
     new_street, new_city, new_state, new_zip_code = consistent_address(street, city, state, zip_code, identifier)
     
     return new_street, new_city, new_state, new_zip_code
-
-# Example usage
-first_name, last_name, dob, mrn = "John", "Doe", "1990-01-01", "123456789"
-
-print(f'Before de-identification: {first_name}, {last_name}, {dob}, {mrn}')
-unique_first_name, unique_last_name, new_dob, age, mrn = deidentify_person(first_name, last_name, dob, mrn)
-print(f"De-identified data: {unique_first_name}, {unique_last_name}, {new_dob}, {age}, {mrn}")
-
-
-print('\n')
-
-# Example usage:
-street, city, state, zip_code = "123 Main St", "Springfield", "IL", "62704"
-print(f'Before de-identification: {street}, {city}, {state}, {zip_code}')
-new_street, new_city, new_state, new_zip_code = deidentify_address(street, city, state, zip_code, first_name, last_name, dob, mrn)
-print(f"De-identified address: {new_street}, {new_city}, {new_state}, {new_zip_code}")
