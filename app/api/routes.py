@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from app.src.parsing import parse_hl7_content  # make sure to import the new function
+from app.src.parsing import parse_content  # make sure to import the new function
 
 router = APIRouter()
 
@@ -11,7 +11,7 @@ async def get_json(file: UploadFile = File(...)):
     try:
         file_contents = await file.read()
         file_text = file_contents.decode("utf-8")  # adjust encoding if needed
-        parsed_data = parse_hl7_content(file_text)
+        parsed_data = parse_content(file_text)
         return parsed_data
 
     except UnicodeDecodeError:

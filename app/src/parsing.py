@@ -1,17 +1,50 @@
 import json, time
+from datetime import datetime
 
-# from app.src.classes import HL7Segment, HL7Message
-# from app.src.constants import segments
-# from app.src.utils import clean_null_entries
+from app.src.classes import HL7Segment, HL7Message
+from app.src.constants import segments, state_codes
+from app.src.utils import clean_null_entries, create_message_summaries, adjust_datetime
 
-from classes import HL7Message, HL7Segment
-from constants import segments
-from utils import clean_null_entries, create_message_summaries, adjust_datetime
+# from classes import HL7Message, HL7Segment
+# from constants import segments, state_codes
+# from utils import clean_null_entries, create_message_summaries, adjust_datetime
 
 
-def parse_message(hl7_message):
+
+def redact_phi_value(value):
+    """Redact a value by replacing its characters with asterisks."""
+    return '*' * len(value) if value else value
+
+def convert_to_age(birthdate_str, redact):
+    """Convert birthdate to age. If age is greater than 89, group as '90+'."""
+    if birthdate_str:
+        birthdate = datetime.strptime(birthdate_str, "%Y%m%d")
+        today = datetime.today()
+        age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
+        return "90+" if redact and age >= 90 else str(age)
+    return birthdate_str
+
+def redact_and_store_subfields(field_value, phi_data, redact):
+    """Redact each subfield value if redact flag is True and store original subfield in phi_data."""
+    if field_value:
+        subfields = field_value.split("^")  # Assuming subfields are separated by '^'
+        redacted_subfields = []
+        for subfield in subfields:
+            
+            if subfield in state_codes.keys(): continue
+
+            if redact and subfield and len(subfield) > 0:
+                phi_data.append(subfield)
+                redacted_subfields.append(redact_phi_value(subfield))
+            else:
+                redacted_subfields.append(subfield)
+        return "^".join(redacted_subfields)
+    return field_value
+
+def parse_message(hl7_message, redact_phi=False):
     message_obj = HL7Message()
     lines = hl7_message.split("\n")
+    phi_data = []
 
     for line in lines:
         if not line.strip():
@@ -37,14 +70,44 @@ def parse_message(hl7_message):
                     fields = segment_line.split("|")[2:]
 
                 expected_fields = segments[current_segment.segment_name].keys()
+
                 for i, field in enumerate(fields):
                     field_name = f"{current_segment.segment_name}-{i+3}" if current_segment.segment_name == "MSH" else f"{current_segment.segment_name}-{i+1}"
 
                     if field_name in expected_fields:
                         field_description = segments[current_segment.segment_name].get(field_name, "No Description")
+
+                        # Handle specific fields with PHI and redact subfields
+                        if field_name == "PID-5":  # Name
+                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                        elif field_name == "PID-7":  # Birthdate (convert to age)
+                            field = convert_to_age(field, redact_phi)
+                        elif field_name == "PID-11":  # Address
+                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                        elif field_name == "PID-13" or field_name == "PID-14":  # Phone numbers
+                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                        elif field_name == "PID-19":  # SSN
+                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                        elif field_name == "PID-3":  # MRN
+                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+                        elif field_name == "PID-18":  # ACC_NUMS
+                            field = redact_and_store_subfields(field, phi_data, redact_phi)
+
                         current_segment.add_field(field_name, field_description, field)
 
                 message_obj.add_segment(current_segment.segment_name, current_segment)
+
+    if redact_phi:
+        for segment_name, segment in message_obj.segments.items():
+            for field_name, field_details in segment.fields.items():
+                subfields = field_details.get("Subfields", {})
+
+                # Ensure subfields is a dictionary
+                if isinstance(subfields, dict):
+                    for subfield_key, subfield_value in subfields.items():
+                        for original_value in phi_data:
+                            if original_value in subfield_value:
+                                subfields[subfield_key] = redact_phi_value(original_value)
 
     return message_obj
 
@@ -53,33 +116,41 @@ def parse_lines(lines):
     parsed_messages = {}
     current_message = []
     raw_messages = {}
+    phi_data_all = {}  # To store the PHI data for each message
 
     for line in lines:
         if line.startswith("MSH"):
             if current_message:
                 full_message = "\n".join(current_message)
 
-                parsed_message = parse_message(full_message)
+                # Capture both parsed message and redacted PHI data
+                parsed_message = parse_message(full_message, redact_phi=False)
                 message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
                 raw_messages[message_id] = full_message
                 parsed_messages[message_id] = parsed_message.to_dict()
+                # phi_data_all[message_id] = phi_data
             current_message = [line.strip()]
         else:
             current_message.append(line.strip())
-    
+
     if current_message:
         full_message = "\n".join(current_message)
 
-        parsed_message = parse_message(full_message)
+        # Capture both parsed message and redacted PHI data
+        parsed_message = parse_message(full_message, redact_phi=False)
         message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
         parsed_messages[message_id] = parsed_message.to_dict()
-    
+        # phi_data_all[message_id] = phi_data
+
+    # Clean and adjust messages
     parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
     parsed_messages = create_message_summaries(parsed_messages)
     parsed_messages = adjust_datetime(parsed_messages)
 
     raw_messages[message_id] = current_message
-    return parsed_messages, raw_messages
+
+    return parsed_messages # Return PHI data as well
+
 
 def parse_file(file_path):
     with open(file_path, 'r') as hl7_file:
@@ -91,52 +162,77 @@ def parse_content(file_content: str):
     return parse_lines(lines)
 
 
-def custom_dumps(obj, indent=4):
-    def recursive_dict(obj):
-        if isinstance(obj, dict):
-            return {key: recursive_dict(value) if isinstance(value, (dict, HL7Segment)) else value
-                    for key, value in obj.items()}
-        elif isinstance(obj, HL7Segment):
-            return obj.to_dict()
-        return obj
 
-    return json.dumps(recursive_dict(obj), indent=indent)
+# -------------------------------------------------------------------
 
-from datetime import datetime
-
+### for generating sorted messages
 def sort_messages_datetime(file_path):
-    # Parse the HL7 file
-    parsed, full = parse_file(file_path)
+    parsed, full, phi_data_all = parse_file(file_path)
 
     print(len(parsed))
     print(len(full), flush=True)
 
-    # Helper function to get the datetime from the message
     def get_msg_datetime(msg):
         try:
-            # Extract the 'msg_datetime' field from the 'summary'
             msg_datetime_str = msg['summary'].get('MSG_DATETIME', None)
-
-            # If the datetime field exists, parse it to a datetime object
             if msg_datetime_str:
                 return datetime.strptime(msg_datetime_str, "%Y-%m-%d %H:%M")  # Adjust format as needed
         except (ValueError, KeyError) as e:
             print(f"Error parsing datetime for message: {e}", flush=True)
         
-        return datetime.min  # Return a minimum datetime value if parsing fails
+        return datetime.min
 
-    # Sort parsed messages by 'summary' -> 'msg_datetime'
     sorted_messages = sorted(parsed.items(), key=lambda item: get_msg_datetime(item[1]))
-
-    # Extract message IDs in the sorted order
     in_order = [msg_id for msg_id, msg in sorted_messages]
-
-    # take full messages and sort them by the order of in_order
     sorted_full = {msg_id: full[msg_id] for msg_id in in_order if msg_id in full}
 
     print(len(sorted_full))
 
-sort_messages_datetime('app/data/big.hl7')
+    with open('app/data/messages_redacted.txt', 'w') as sorted_file:
+        for msg_id, msg in sorted_full.items():
+            if isinstance(msg, list):
+                message_str = "\r".join(msg)
+            else:
+                message_str = msg 
+
+            sorted_file.write(message_str)
+            sorted_file.write("\n") 
+
+    # Optionally return or log PHI data
+    print(json.dumps(phi_data_all, indent=2), flush=True)
+
+
+
+def redact_hl7_hpi(file_path):
+    parsed, full, phi_data_all = parse_file(file_path)
+
+    print(len(parsed))
+    print(len(full), flush=True)
+
+    def get_msg_datetime(msg):
+        try:
+            msg_datetime_str = msg['summary'].get('MSG_DATETIME', None)
+            if msg_datetime_str:
+                return datetime.strptime(msg_datetime_str, "%Y-%m-%d %H:%M")  # Adjust format as needed
+        except (ValueError, KeyError) as e:
+            print(f"Error parsing datetime for message: {e}", flush=True)
+        
+        return datetime.min
+
+    sorted_messages = sorted(parsed.items(), key=lambda item: get_msg_datetime(item[1]))
+    in_order = [msg_id for msg_id, msg in sorted_messages]
+    sorted_full = {msg_id: full[msg_id] for msg_id in in_order if msg_id in full}
+
+    print(len(sorted_full))
+
+
+
+# Example call
+# sort_messages_datetime('app/data/small.hl7')
+
+
+
+
 
 
 
