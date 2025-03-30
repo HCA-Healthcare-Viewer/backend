@@ -1,7 +1,7 @@
 import hashlib
 import datetime
-from app.src.constants import FIRST_NAMES, LAST_NAMES, STREET_PREFIXES, STREET_SUFFIXES, CITIES
-# from constants import FIRST_NAMES, LAST_NAMES, STREET_PREFIXES, STREET_SUFFIXES, CITIES
+# from app.src.constants import FIRST_NAMES, LAST_NAMES, STREET_PREFIXES, STREET_SUFFIXES, CITIES
+from constants import FIRST_NAMES, LAST_NAMES, STREET_PREFIXES, STREET_SUFFIXES, CITIES
 
 def consistent_bday(dob, identifier):
     """

@@ -1,3 +1,9 @@
 *.pyc
 *.json
 .pdm-python
+app/data/messages_deidentified.txt
+app/data/messages_redacted.txt
+app/main.py
+app/src/deidentify.py
+app/src/parsing.py
+app/src/utils.py

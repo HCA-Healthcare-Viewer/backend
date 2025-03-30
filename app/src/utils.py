@@ -6,21 +6,15 @@ def clean_null_entries(message):
 
     copymsg = message.copy()
 
-    # Iterate over the segments and fields
     for segment, fields in copymsg.items():
-        # Use list(fields["fields"].items()) to safely iterate while modifying
         for field, details in list(fields["fields"].items()):
             field_value = details["Field Value"]
             
-            # Check if the Field Value is None, empty, or consists entirely of '^' characters
             if field_value is None or field_value == "" or set(field_value) == {"^"}:
-                # Remove the field if any of the above conditions are true
                 del fields["fields"][field]
             elif isinstance(details["Subfields"], dict):
-                # Iterate over the subfields in a similar manner
                 for subfield, subfield_value in list(details["Subfields"].items()):
                     if subfield_value is None or subfield_value == "" or (isinstance(subfield_value, list) and not subfield_value):
-                        # Remove subfields that are None, empty strings, or empty lists
                         del details["Subfields"][subfield]
 
             # After cleaning, remove 'Field Value' since it's already parsed into subfields
@@ -28,7 +22,6 @@ def clean_null_entries(message):
                 del details['Field Value']
 
     return copymsg
-
 
 def create_message_summaries(messages):
     for message_id, message in messages.items():
@@ -52,10 +45,9 @@ def create_message_summaries(messages):
     return messages
 
 def update_summary(id, message):
-    
     summary = {
         "MCID": id,
-        "MRN": message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None),
+        "MRN": message.get("PID",{}).get("fields",{}).get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None),
         "PLN": message["PID"]["fields"].get("PID-5", {}).get("Subfields", {}).get("PID-5.1", None),
         "MSG_TYPE": message["MSH"]["fields"].get("MSH-9", {}).get("Subfields", {}).get("MSH-9.1", None),
         "MSG_DATETIME": message["MSH"]["fields"].get("MSH-7", {}).get("Subfields", {}).get("MSH-7.1", None),
@@ -115,7 +107,6 @@ def adjust_datetime(messages):
 def adjust_datetime_str(datetime_str):
     if set(datetime_str) == {"*"}:
         return datetime_str  # Return as is if redacted
-
     try:
         if len(datetime_str) == 8:
             # Format: YYYYMMDD
@@ -134,8 +125,8 @@ def adjust_datetime_str(datetime_str):
     
 
 def get_deidentified_person(message):
-    from app.src.deidentify import deidentify_person
-    # from deidentify import deidentify_person
+    # from app.src.deidentify import deidentify_person
+    from deidentify import deidentify_person
 
     """
     Extract and deidentify relevant fields from the HL7 message.
@@ -158,8 +149,8 @@ def get_deidentified_person(message):
     }
 
 def get_deidentified_address(message):
-    from app.src.deidentify import deidentify_address
-    # from deidentify import deidentify_address
+    # from app.src.deidentify import deidentify_address
+    from deidentify import deidentify_address
 
     """
     Extract and deidentify relevant fields from the HL7 message.

@@ -5,7 +5,6 @@ from typing import List
 from app.api.routes import router as api_router
 
 
-
 app = FastAPI()
 app.include_router(api_router)
 

@@ -1,13 +1,13 @@
 import json, time
 from datetime import datetime
 
-from app.src.classes import HL7Segment, HL7Message
-from app.src.constants import segments, ignored_subfield_ids
-from app.src.utils import clean_null_entries, create_message_summaries, adjust_datetime, replace_deidentified_fields, update_summary
+# from app.src.classes import HL7Segment, HL7Message
+# from app.src.constants import segments, ignored_subfield_ids
+# from app.src.utils import clean_null_entries, create_message_summaries, adjust_datetime, replace_deidentified_fields, update_summary
 
-# from classes import HL7Message, HL7Segment
-# from constants import segments, ignored_subfield_ids
-# from utils import clean_null_entries, create_message_summaries, adjust_datetime, replace_deidentified_fields, update_summary
+from classes import HL7Message, HL7Segment
+from constants import segments, ignored_subfield_ids
+from utils import clean_null_entries, create_message_summaries, adjust_datetime, replace_deidentified_fields, update_summary
 
 def redact_phi_value(value):
     """Redact a value by replacing its characters with asterisks."""
@@ -229,25 +229,35 @@ def redact_hpi(file_path):
 
 def deidentify_hpi(file_path):
 
-    # Iterate over each message id in phi_data_all
-    from parsing import parse_file
-    from utils import replace_deidentified_fields, update_summary
-
     parsed_messages, full , phi_data = parse_file(file_path=file_path)
 
     for message_id, message in parsed_messages.items():
         parsed_messages[message_id] = replace_deidentified_fields(message)
-        parsed_messages[message_id]['summary'] = update_summary(parsed_messages[message_id]['summary'])
+        parsed_messages[message_id]['summary'] = update_summary(message_id, parsed_messages[message_id])
 
-    # with open('app/data/messages_deidentified.txt', 'w') as deidentified_file:
-    #     for msg_id, msg in full.items():
-    #         if isinstance(msg, list):
-    #             message_str = "\r".join(msg)
-    #         elif isinstance(msg, dict):
-    #             message_str = json.dumps(msg, indent=2)
-    #         else:
-    #             message_str = msg
-    #         deidentified_file.write(message_str + "\n")
+    for message_id, phi_data in phi_data.items():
+        if message_id in full:
+            # Get the raw message
+            message = full[message_id]
+
+            # Loop through each value in phi_data and redact it in the message
+            for phi_value in phi_data:
+                if phi_value in message:
+                    # Perform the string replacement (redact by replacing with asterisks)
+                    message = message.replace(phi_value, redact_phi_value(phi_value))
+
+            # Update the full dictionary with the redacted message
+            full[message_id] = message
+
+    with open('app/data/messages_deidentified.txt', 'w') as deidentified_file:
+        for msg_id, msg in full.items():
+            if isinstance(msg, list):
+                message_str = "\r".join(msg)
+            elif isinstance(msg, dict):
+                message_str = json.dumps(msg, indent=2)
+            else:
+                message_str = msg
+            deidentified_file.write(message_str + "\n")
 
     with open('app/data/messages_deidentified.json', 'w') as deidentified_json_file:
         json.dump(parsed_messages, deidentified_json_file, indent=2)
@@ -257,4 +267,4 @@ def deidentify_hpi(file_path):
 
 # sort_messages_datetime('app/data/big.hl7')
 # redact_hpi('app/data/big.hl7')
-# deidentify_hpi('app/data/big.hl7')
+deidentify_hpi('app/data/big.hl7')
