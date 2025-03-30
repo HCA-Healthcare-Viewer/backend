@@ -235,25 +235,6 @@ def redact_hl7_hpi(file_path):
     
     # print(f"Redaction complete. {len(full)} messages processed.")
 
-# Example call to redact HPI in the file
 
-redact_hl7_hpi('app/data/big.hl7')
-
-
-
-
-
-
-
-
-# start_time = time.time()
-# print("Parsing HL7 messages...", flush=True)
-# parsed_hl7_messages = parse_file('app/data/big.hl7')
-# print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
-
-# # Write to JSON file with IDs as keys
-# start_time = time.time()
-# print("Writing parsed HL7 messages to JSON...", flush=True)
-# with open('app/data/big_parsed_messages.json', 'w') as json_file:
-#     json.dump(parsed_hl7_messages, json_file, indent=2)
-# print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
+# sort_messages_datetime('app/data/big.hl7')
+# redact_hl7_hpi('app/data/big.hl7')
