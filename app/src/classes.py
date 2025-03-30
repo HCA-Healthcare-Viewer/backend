@@ -62,19 +62,19 @@ class HL7Message:
         return None
     
     def get_MRN(self):
-        if "PID" in self.segments and "PID-3" in self.segments["PID"].fields:
+        if "PID" in self.segments and "PID-18" in self.segments["PID"].fields:
             try:
-                subfields = [field for field in self.segments["PID"].fields["PID-3"]["Subfields"] if field.startswith("PID-3.")]
+                subfields = [field for field in self.segments["PID"].fields["PID-18"]["Subfields"] if field.startswith("PID-18.")]
                 if not len(subfields) > 1:
-                    return self.segments["PID"].fields["PID-3"]["Subfields"].get(subfields[0])
+                    return self.segments["PID"].fields["PID-18"]["Subfields"].get(subfields[0])
                 else:   
                     # find list with 'MR' in it
                     for field in subfields:
-                        if 'MR' in self.segments["PID"].fields["PID-3"]["Subfields"][field]:
-                            return self.segments["PID"].fields["PID-3"]["Subfields"][field]
+                        if 'MR' in self.segments["PID"].fields["PID-18"]["Subfields"][field]:
+                            return self.segments["PID"].fields["PID-18"]["Subfields"][field]
 
             except Exception as e:
-                print(f"Error retrieving PID-3: {e}",flush=True)
+                print(f"Error retrieving MRN: {e}",flush=True)
                 # print(f"PID Segment: {self.segments['PID'].fields}")
             
         return None
