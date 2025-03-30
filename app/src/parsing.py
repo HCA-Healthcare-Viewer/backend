@@ -81,18 +81,9 @@ def parse_message(hl7_message, redact_phi=False):
                     if field_name in expected_fields:
                         field_description = segments[current_segment.segment_name].get(field_name, "No Description")
 
-                        # Handle specific fields with PHI and redact subfields
-                        if field_name == "PID-5":  # Name
-                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
-                        elif field_name == "PID-7":  # Birthdate (convert to age)
-                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
-                        elif field_name == "PID-11":  # Address
-                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
-                        elif field_name == "PID-13" or field_name == "PID-14":  # Phone numbers
-                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
-                        elif field_name == "PID-19":  # SSN
-                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
-                        elif field_name == "PID-18":  # MRN
+                        PID_REDACT = ["PID-5", "PID-7", "PID-11", "PID-13", "PID-14", "PID-18", "PID-19"]
+
+                        if field_name in PID_REDACT:
                             field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
 
                         current_segment.add_field(field_name, field_description, field)
@@ -114,7 +105,7 @@ def parse_message(hl7_message, redact_phi=False):
     return message_obj, phi_data
 
 
-def parse_lines(lines):
+def parse_lines(lines,deidentify=True):
     parsed_messages = {}
     current_message = []
     raw_messages = {}
@@ -126,7 +117,7 @@ def parse_lines(lines):
                 full_message = "\n".join(current_message)
 
                 # Capture both parsed message and redacted PHI data
-                parsed_message, phi_data = parse_message(full_message, redact_phi=True)
+                parsed_message, phi_data = parse_message(full_message, redact_phi=False, deidentify=deidentify)
                 message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
                 raw_messages[message_id] = full_message
                 parsed_messages[message_id] = parsed_message.to_dict()
@@ -139,7 +130,7 @@ def parse_lines(lines):
         full_message = "\n".join(current_message)
 
         # Capture both parsed message and redacted PHI data
-        parsed_message, phi_data = parse_message(full_message, redact_phi=True)
+        parsed_message, phi_data = parse_message(full_message, redact_phi=False, deidentify=deidentify)
         message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
         parsed_messages[message_id] = parsed_message.to_dict()
         phi_data_all[message_id] = phi_data
@@ -155,11 +146,11 @@ def parse_lines(lines):
 def parse_file(file_path):
     with open(file_path, 'r') as hl7_file:
         lines = hl7_file.readlines()
-    return parse_lines(lines)
+    return parse_lines(lines, deidentify=True)
 
 def parse_content(file_content: str):
     lines = file_content.splitlines()
-    return parse_lines(lines)
+    return parse_lines(lines, deidentify=True)
 
 
 
