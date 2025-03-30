@@ -7,7 +7,7 @@ import json
 router = APIRouter()
 
 @router.get("/get_json")
-async def get_json(file_path='source_hl7_messages_v2.hl7'):
+async def get_json(file_path):
     """
     Endpoint to return a JSON response.
     """
