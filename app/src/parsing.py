@@ -48,46 +48,31 @@ def parse_message(hl7_message):
 
     return message_obj
 
-def parse_file(file_path):
+
+def parse_lines(lines):
     parsed_messages = {}
-
-    with open(file_path, 'r') as hl7_file:
-        current_message = []
-        for line in hl7_file:
-            # Start of a new message
-            if line.startswith("MSH"):
-                if current_message:
-                    # Join and parse the current message if there's any content
-                    full_message = "\n".join(current_message)
-                    parsed_message = parse_message(full_message)
-                    message_cid = parsed_message.get_message_control_id() or f"mcid{len(parsed_messages)+1}"
-                    message_MRN = parsed_message.get_MRN() or f"MRN_{len(parsed_messages)+1}"
-                    parsed_messages[message_cid] = parsed_message.to_dict()
-
-
-                # Start a new message
-                current_message = [line.strip()]
-            else:
-                current_message.append(line.strip())
-        
-        # Handle the last message after the loop
-        if current_message:
-            full_message = "\n".join(current_message)
-            parsed_message = parse_message(full_message)
-            message_cid = parsed_message.get_message_control_id() or f"mcid{len(parsed_messages)+1}"
-            message_MRN = parsed_message.get_MRN() or f"MRN_{len(parsed_messages)+1}"
-            parsed_messages[message_cid] = parsed_message.to_dict()
-
-        # clean null entries
+    current_message = []
+    
+    for line in lines:
+        if line.startswith("MSH"):
+            if current_message:
+                full_message = "\n".join(current_message)
+                parsed_message = parse_message(full_message)
+                message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
+                parsed_messages[message_id] = parsed_message.to_dict()
+            current_message = [line.strip()]
+        else:
+            current_message.append(line.strip())
+    
+    if current_message:
+        full_message = "\n".join(current_message)
+        parsed_message = parse_message(full_message)
+        message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
+        parsed_messages[message_id] = parsed_message.to_dict()
+    
         parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
-
-        # create message summaries
         parsed_messages = create_message_summaries(parsed_messages)
-
-        # adjust datetime format
         parsed_messages = adjust_datetime(parsed_messages)
-
-
     return parsed_messages
 
 def parse_file(file_path):
@@ -110,6 +95,8 @@ def custom_dumps(obj, indent=4):
         return obj
 
     return json.dumps(recursive_dict(obj), indent=indent)
+
+
 
 start_time = time.time()
 print("Parsing HL7 messages...", flush=True)
