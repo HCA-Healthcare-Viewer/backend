@@ -43,30 +43,23 @@ def consistent_bday(dob, identifier):
 
 
 def deidentify_person(first_name, last_name, dob, mrn):
-    # Create a unique identifier based on first name, last name, dob, and mrn
     identifier = f"{first_name}{last_name}{dob}{mrn}"
     
-    # Hash the identifier for consistent indexing
     sha256_hash = hashlib.sha256(identifier.encode()).hexdigest()
     
-    # Use the hash to select consistent indices for first and last names
     first_name_index = int(sha256_hash[:8], 16) % len(FIRST_NAMES)
     last_name_index = int(sha256_hash[8:14], 16) % len(LAST_NAMES)
-    mrn = int(sha256_hash[14:16], 16) % 1000000  # Assuming MRN is a 6-digit number
+    new_mrn = int(sha256_hash[8:16], 16) % 10000000
 
-    
-    # Retrieve the unique first and last name
     unique_first_name = FIRST_NAMES[first_name_index]
     unique_last_name = LAST_NAMES[last_name_index]
 
-    
-    # Generate a consistent random birthday based on the identifier
     new_dob, age = consistent_bday(dob, identifier)
 
-    return unique_first_name, unique_last_name.lower(), new_dob, age, mrn
+    return unique_first_name, unique_last_name.lower(), new_dob, age, new_mrn
 
 
-def consistent_address(street, city, state, zip_code, identifier):
+def consistent_address(state, identifier):
     """
     De-identify the street, city, and zip code while keeping the state intact. 
     The de-identified values will be consistent based on the hashed identifier.
@@ -96,7 +89,7 @@ def consistent_address(street, city, state, zip_code, identifier):
     return new_street, new_city, state, new_zip_code
 
 
-def deidentify_address(street, city, state, zip_code, mrn):
+def deidentify_address(state, mrn):
     """
     De-identify the address based on personal information while keeping the state unchanged.
     """
@@ -104,6 +97,6 @@ def deidentify_address(street, city, state, zip_code, mrn):
     identifier = f"{mrn}"
     
     # De-identify the street, city, and zip code (keep state intact)
-    new_street, new_city, new_state, new_zip_code = consistent_address(street, city, state, zip_code, identifier)
+    new_street, new_city, new_state, new_zip_code = consistent_address(state, identifier)
     
     return new_street, new_city, new_state, new_zip_code

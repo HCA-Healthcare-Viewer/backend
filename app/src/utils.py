@@ -147,14 +147,14 @@ def get_deidentified_person(message):
     mrn = message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None)
 
     # Deidentify the data
-    unique_first_name, unique_last_name, new_dob, age, mrn = deidentify_person(first_name, last_name, dob, mrn)
+    unique_first_name, unique_last_name, new_dob, age, new_mrn = deidentify_person(first_name, last_name, dob, mrn)
 
     return {
         "unique_first_name": unique_first_name,
         "unique_last_name": unique_last_name,
         "new_dob": new_dob,
         "age": age,
-        "mrn": mrn
+        "mrn": new_mrn
     }
 
 def get_deidentified_address(message):
@@ -172,7 +172,7 @@ def get_deidentified_address(message):
     mrn = message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None)
 
     # Deidentify the data
-    unique_street, unique_city, unique_state, unique_zip_code = deidentify_address(street, city, state, zip_code, mrn)
+    unique_street, unique_city, unique_state, unique_zip_code = deidentify_address(state, mrn)
 
     return {
         "unique_street": unique_street,
