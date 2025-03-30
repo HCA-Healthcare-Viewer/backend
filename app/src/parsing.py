@@ -1,5 +1,4 @@
 import json, time
-from datetime import datetime
 
 # from app.src.classes import HL7Segment, HL7Message
 # from app.src.constants import segments
@@ -7,10 +6,10 @@ from datetime import datetime
 
 from classes import HL7Message, HL7Segment
 from constants import segments
-from utils import clean_null_entries
+from utils import clean_null_entries, create_message_summaries, adjust_datetime
 
 
-def parse_hl7_message(hl7_message):
+def parse_message(hl7_message):
     message_obj = HL7Message()
     lines = hl7_message.split("\n")
 
@@ -44,20 +43,13 @@ def parse_hl7_message(hl7_message):
                     if field_name in expected_fields:
                         field_description = segments[current_segment.segment_name].get(field_name, "No Description")
 
-                        if "Date/Time" in field_description:
-                            try:
-                                parsed_field = datetime.strptime(field, "%Y%m%d%H%M")
-                            except ValueError:
-                                parsed_field = field
-                            current_segment.add_field(field_name, field_description, parsed_field)
-                        else:
-                            current_segment.add_field(field_name, field_description, field)
+                        current_segment.add_field(field_name, field_description, field)
 
                 message_obj.add_segment(current_segment.segment_name, current_segment)
 
     return message_obj
 
-def parse_hl7_file(file_path):
+def parse_file(file_path):
     parsed_messages = {}
 
     with open(file_path, 'r') as hl7_file:
@@ -68,10 +60,11 @@ def parse_hl7_file(file_path):
                 if current_message:
                     # Join and parse the current message if there's any content
                     full_message = "\n".join(current_message)
-                    parsed_message = parse_hl7_message(full_message)
-                    
-                    message_id = parsed_message.get_MRN() or f"message_{len(parsed_messages)+1}"
-                    parsed_messages[message_id] = parsed_message.to_dict()
+                    parsed_message = parse_message(full_message)
+                    message_cid = parsed_message.get_message_control_id() or f"mcid{len(parsed_messages)+1}"
+                    message_MRN = parsed_message.get_MRN() or f"MRN_{len(parsed_messages)+1}"
+                    parsed_messages[message_cid] = parsed_message.to_dict()
+
 
                 # Start a new message
                 current_message = [line.strip()]
@@ -81,9 +74,19 @@ def parse_hl7_file(file_path):
         # Handle the last message after the loop
         if current_message:
             full_message = "\n".join(current_message)
-            parsed_message = parse_hl7_message(full_message)
-            message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages)+1}"
-            parsed_messages[message_id] = parsed_message.to_dict()
+            parsed_message = parse_message(full_message)
+            message_cid = parsed_message.get_message_control_id() or f"mcid{len(parsed_messages)+1}"
+            message_MRN = parsed_message.get_MRN() or f"MRN_{len(parsed_messages)+1}"
+            parsed_messages[message_cid] = parsed_message.to_dict()
+
+        # clean null entries
+        parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
+
+        # create message summaries
+        parsed_messages = create_message_summaries(parsed_messages)
+
+        # adjust datetime format
+        parsed_messages = adjust_datetime(parsed_messages)
 
 
     return parsed_messages
@@ -99,16 +102,14 @@ def custom_dumps(obj, indent=4):
 
     return json.dumps(recursive_dict(obj), indent=indent)
 
-# start_time = time.time()
-# print("Parsing HL7 messages...", flush=True)
-# parsed_hl7_messages = parse_hl7_file('app/data/small.hl7')
-# for message_id, message in parsed_hl7_messages.items():
-#     parsed_hl7_messages[message_id] = clean_null_entries(message)
-# print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
+start_time = time.time()
+print("Parsing HL7 messages...", flush=True)
+parsed_hl7_messages = parse_file('app/data/big.hl7')
+print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
 
-# # Write to JSON file with IDs as keys
-# start_time = time.time()
-# print("Writing parsed HL7 messages to JSON...", flush=True)
-# with open('app/data/small_parsed_messages.json', 'w') as json_file:
-#     json.dump(parsed_hl7_messages, json_file, indent=2)
-# print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
+# Write to JSON file with IDs as keys
+start_time = time.time()
+print("Writing parsed HL7 messages to JSON...", flush=True)
+with open('app/data/big_parsed_messages.json', 'w') as json_file:
+    json.dump(parsed_hl7_messages, json_file, indent=2)
+print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
