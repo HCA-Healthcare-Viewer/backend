@@ -34,7 +34,7 @@ def create_message_summaries(messages):
     for message_id, message in messages.items():
         summary = {
             "MCID": message_id,
-            "MRN": message["PID"]["fields"].get("PID-3", {}).get("Subfields", {}).get("PID-3.1", None),
+            "MRN": message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None),
             "PLN": message["PID"]["fields"].get("PID-5", {}).get("Subfields", {}).get("PID-5.1", None),
             "MSG_TYPE": message["MSH"]["fields"].get("MSH-9", {}).get("Subfields", {}).get("MSH-9.1", None),
             "MSG_DATETIME": message["MSH"]["fields"].get("MSH-7", {}).get("Subfields", {}).get("MSH-7.1", None),
@@ -50,6 +50,20 @@ def create_message_summaries(messages):
         messages[message_id] = {segment: messages[message_id][segment] for segment in segments}
 
     return messages
+
+def update_summary(id, message):
+    
+    summary = {
+        "MCID": id,
+        "MRN": message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None),
+        "PLN": message["PID"]["fields"].get("PID-5", {}).get("Subfields", {}).get("PID-5.1", None),
+        "MSG_TYPE": message["MSH"]["fields"].get("MSH-9", {}).get("Subfields", {}).get("MSH-9.1", None),
+        "MSG_DATETIME": message["MSH"]["fields"].get("MSH-7", {}).get("Subfields", {}).get("MSH-7.1", None),
+    }
+    summary['MSG_DATETIME'] = adjust_datetime_str(summary['MSG_DATETIME']) if summary['MSG_DATETIME'] else None
+
+    message['summary'] = summary
+    return message
 
 
 def adjust_datetime(messages):
@@ -155,9 +169,10 @@ def get_deidentified_address(message):
     city = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.3", None)
     state = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.4", None)
     zip_code = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.5", None)
+    mrn = message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None)
 
     # Deidentify the data
-    unique_street, unique_city, unique_state, unique_zip_code = deidentify_address(street, city, state, zip_code)
+    unique_street, unique_city, unique_state, unique_zip_code = deidentify_address(street, city, state, zip_code, mrn)
 
     return {
         "unique_street": unique_street,
@@ -165,3 +180,38 @@ def get_deidentified_address(message):
         "unique_state": unique_state,
         "unique_zip_code": unique_zip_code
     }
+
+def replace_deidentified_fields(message):
+    # Deidentify person-related fields
+    person_deid = get_deidentified_person(message)
+    # Update the patient's name and date of birth fields in the PID segment
+    if "PID" in message and "fields" in message["PID"]:
+        if "PID-5" in message["PID"]["fields"]:
+            subfields = message["PID"]["fields"]["PID-5"].get("Subfields", {})
+            # Replace first and last names with deidentified values
+            subfields["PID-5.1"] = person_deid["unique_last_name"]
+            subfields["PID-5.2"] = person_deid["unique_first_name"]
+            message["PID"]["fields"]["PID-5"]["Subfields"] = subfields
+
+        if "PID-7" in message["PID"]["fields"]:
+            subfields = message["PID"]["fields"]["PID-7"].get("Subfields", {})
+            # Replace the date of birth with the deidentified date
+            subfields["PID-7.1"] = person_deid["new_dob"]
+            message["PID"]["fields"]["PID-7"]["Subfields"] = subfields
+
+    # Deidentify address-related fields
+    address_deid = get_deidentified_address(message)
+    if "PID" in message and "fields" in message["PID"]:
+        if "PID-11" in message["PID"]["fields"]:
+            subfields = message["PID"]["fields"]["PID-11"].get("Subfields", {})
+            subfields["PID-11.1"] = address_deid["unique_street"]
+            subfields["PID-11.3"] = address_deid["unique_city"]
+            subfields["PID-11.4"] = address_deid["unique_state"]
+            subfields["PID-11.5"] = address_deid["unique_zip_code"]
+            message["PID"]["fields"]["PID-11"]["Subfields"] = subfields
+
+    # Optionally, update the summary with deidentified age if needed
+    if "summary" in message:
+        message["summary"]["age"] = person_deid["age"]
+
+    return message
