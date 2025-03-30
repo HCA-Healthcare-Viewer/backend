@@ -84,10 +84,8 @@ def adjust_datetime(messages):
                             elif len(value) == 17:
                                 # Format: YYYYMMDDHHMM-ZZZZ
                                 formatted_date = datetime.strptime(value, "%Y%m%d%H%M%z").strftime("%Y-%m-%d %H:%M")
-                                print(f"Formatted date: {formatted_date}", flush=True)
                             else: formatted_date = value
 
-                            # Update the subfield with the formatted date
                             field_subfields[f"{field_name}.1"] = formatted_date
                             field_details["Subfields"] = field_subfields
 
