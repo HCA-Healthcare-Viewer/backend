@@ -901,3 +901,21 @@ LAST_NAMES = [
     "REED",
     "KELLY"
 ]
+
+STREET_PREFIXES = ['Golden', 'Maple', 'Oak', 'Pine', 'Cedar', 'Elm', 'Birch', 'Willow', 'Cherry', 'Walnut',
+                   'Ash', 'Spruce', 'Fir', 'Hickory', 'Magnolia', 'Chestnut', 'Redwood', 'Cypress', 'Sycamore',
+                   'Poplar', 'Aspen', 'Beech', 'Linden', 'Hemlock', 'Juniper', 'Laurel', 'Mulberry', 'Sequoia',
+                   'Yew', 'Hawthorn', 'Dogwood', 'Alder', 'Cottonwood', 'Eucalyptus', 'Olive', 'Peach', 'Plum',
+                   'Fig', 'Nectarine', 'Persimmon', 'Tamarind', 'Coconut', 'Date', 'Papaya', 'Guava', 'Mango',]
+
+STREET_SUFFIXES = ['St', 'Ave', 'Blvd', 'Ln', 'Rd', 'Way']
+
+CITIES = [
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", 
+    "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville", 
+    "Fort Worth", "Columbus", "Charlotte", "San Francisco", "Indianapolis", 
+    "Seattle", "Denver", "Washington", "Boston", "El Paso", "Detroit", "Nashville",
+    "Baltimore", "Oklahoma City", "Portland", "Las Vegas", "Milwaukee", "Albuquerque",
+    "Tucson", "Fresno", "Sacramento", "Long Beach", "Kansas City", "Mesa",
+    "Virginia Beach", "Atlanta", "Colorado Springs", "Omaha", "Raleigh",
+    "Miami", "Cleveland", "Tulsa", "Oakland", "Minneapolis", "Wichita"]
