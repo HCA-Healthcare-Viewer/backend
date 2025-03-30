@@ -6,15 +6,21 @@ def clean_null_entries(message):
 
     copymsg = message.copy()
 
+    # Iterate over the segments and fields
     for segment, fields in copymsg.items():
+        # Use list(fields["fields"].items()) to safely iterate while modifying
         for field, details in list(fields["fields"].items()):
             field_value = details["Field Value"]
             
+            # Check if the Field Value is None, empty, or consists entirely of '^' characters
             if field_value is None or field_value == "" or set(field_value) == {"^"}:
+                # Remove the field if any of the above conditions are true
                 del fields["fields"][field]
             elif isinstance(details["Subfields"], dict):
+                # Iterate over the subfields in a similar manner
                 for subfield, subfield_value in list(details["Subfields"].items()):
                     if subfield_value is None or subfield_value == "" or (isinstance(subfield_value, list) and not subfield_value):
+                        # Remove subfields that are None, empty strings, or empty lists
                         del details["Subfields"][subfield]
 
             # After cleaning, remove 'Field Value' since it's already parsed into subfields
@@ -22,6 +28,7 @@ def clean_null_entries(message):
                 del details['Field Value']
 
     return copymsg
+
 
 def create_message_summaries(messages):
     for message_id, message in messages.items():
@@ -45,9 +52,10 @@ def create_message_summaries(messages):
     return messages
 
 def update_summary(id, message):
+    
     summary = {
         "MCID": id,
-        "MRN": message.get("PID",{}).get("fields",{}).get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None),
+        "MRN": message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None),
         "PLN": message["PID"]["fields"].get("PID-5", {}).get("Subfields", {}).get("PID-5.1", None),
         "MSG_TYPE": message["MSH"]["fields"].get("MSH-9", {}).get("Subfields", {}).get("MSH-9.1", None),
         "MSG_DATETIME": message["MSH"]["fields"].get("MSH-7", {}).get("Subfields", {}).get("MSH-7.1", None),
@@ -107,6 +115,7 @@ def adjust_datetime(messages):
 def adjust_datetime_str(datetime_str):
     if set(datetime_str) == {"*"}:
         return datetime_str  # Return as is if redacted
+
     try:
         if len(datetime_str) == 8:
             # Format: YYYYMMDD
@@ -125,8 +134,8 @@ def adjust_datetime_str(datetime_str):
     
 
 def get_deidentified_person(message):
-    # from app.src.deidentify import deidentify_person
-    from deidentify import deidentify_person
+    from app.src.deidentify import deidentify_person
+    # from deidentify import deidentify_person
 
     """
     Extract and deidentify relevant fields from the HL7 message.
@@ -149,8 +158,8 @@ def get_deidentified_person(message):
     }
 
 def get_deidentified_address(message):
-    # from app.src.deidentify import deidentify_address
-    from deidentify import deidentify_address
+    from app.src.deidentify import deidentify_address
+    # from deidentify import deidentify_address
 
     """
     Extract and deidentify relevant fields from the HL7 message.
@@ -182,6 +191,7 @@ def replace_deidentified_fields(message):
             # Replace first and last names with deidentified values
             subfields["PID-5.1"] = person_deid["unique_last_name"]
             subfields["PID-5.2"] = person_deid["unique_first_name"]
+            subfields["PID-5.3"] = person_deid["age"]
             message["PID"]["fields"]["PID-5"]["Subfields"] = subfields
 
         if "PID-7" in message["PID"]["fields"]:
@@ -189,6 +199,13 @@ def replace_deidentified_fields(message):
             # Replace the date of birth with the deidentified date
             subfields["PID-7.1"] = person_deid["new_dob"]
             message["PID"]["fields"]["PID-7"]["Subfields"] = subfields
+
+        if "PID-18" in message["PID"]["fields"]:
+            subfields = message["PID"]["fields"]["PID-18"].get("Subfields", {})
+            # Replace the MRN with the new deidentified MRN
+            subfields["PID-18.1"] = person_deid["mrn"]
+            message["PID"]["fields"]["PID-18"]["Subfields"] = subfields
+
 
     # Deidentify address-related fields
     address_deid = get_deidentified_address(message)
