@@ -137,8 +137,9 @@ def parse_lines(lines, deidentify=True, redact_phi=False):
     parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
     parsed_messages = create_message_summaries(parsed_messages)
     parsed_messages = adjust_datetime(parsed_messages)
-    parsed_messages = {message_id: replace_deidentified_fields(message) for message_id, message in parsed_messages.items()}
-    parsed_messages = {message_id: update_summary(id=message_id, message=message) for message_id, message in parsed_messages.items()}
+    if deidentify:
+        parsed_messages = {message_id: replace_deidentified_fields(message) for message_id, message in parsed_messages.items()}
+        parsed_messages = {message_id: update_summary(id=message_id, message=message) for message_id, message in parsed_messages.items()}
 
     return parsed_messages, raw_messages, phi_data_all  # Return PHI data as well
 
