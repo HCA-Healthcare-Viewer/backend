@@ -7,45 +7,42 @@ from datetime import datetime
 
 from classes import HL7Message, HL7Segment
 from constants import segments, ignored_subfield_ids
-from utils import clean_null_entries, create_message_summaries, adjust_datetime
-
-
+from utils import clean_null_entries, create_message_summaries, adjust_datetime, replace_deidentified_fields, update_summary
 
 def redact_phi_value(value):
     """Redact a value by replacing its characters with asterisks."""
     return '*' * len(value) if value else value
 
-def convert_to_age(birthdate_str, redact):
+def convert_to_age(birthdate_str):
     """Convert birthdate to age. If age is greater than 89, group as '90+'."""
     if birthdate_str:
         birthdate = datetime.strptime(birthdate_str, "%Y%m%d")
         today = datetime.today()
         age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
-        return "90+" if redact and age >= 90 else str(age)
-    return birthdate_str
+        return "90+" if age >= 90 else str(age)
+    return age
 
 def redact_and_store_subfields(field_value, field_id, phi_data, redact):
     """Redact each subfield value if redact flag is True, unless the subfield is in ignored_subfield_ids."""
     
     if field_value:
-        subfields = field_value.split("^")  # Assuming subfields are separated by '^'
+        subfields = field_value.split("^")
         redacted_subfields = []
         
         for i, subfield in enumerate(subfields):
-            subfield_id = f"{field_id}.{i+1}"  # Create subfield ID (e.g., PID-5.1, PID-5.2, etc.)
+            subfield_id = f"{field_id}.{i+1}"
             
             if redact and subfield and len(subfield) > 0 and (subfield_id not in ignored_subfield_ids):
                 phi_data.append(subfield)
                 redacted_subfields.append(redact_phi_value(subfield))
-                # print(f"Redacting subfield {subfield_id}: {subfield}", flush=True)
-            else:
-                redacted_subfields.append(subfield)
+
+            else: redacted_subfields.append(subfield)
 
         return "^".join(redacted_subfields)
     return field_value
 
 
-def parse_message(hl7_message, redact_phi=False):
+def parse_message(hl7_message, redact_phi=False, deidentify=True):
     message_obj = HL7Message()
     lines = hl7_message.split("\n")
     phi_data = []
@@ -83,8 +80,7 @@ def parse_message(hl7_message, redact_phi=False):
 
                         PID_REDACT = ["PID-5", "PID-7", "PID-11", "PID-13", "PID-14", "PID-18", "PID-19"]
 
-                        if field_name in PID_REDACT:
-                            field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
+                        if field_name in PID_REDACT: field = redact_and_store_subfields(field,field_name,phi_data, redact_phi)
 
                         current_segment.add_field(field_name, field_description, field)
 
@@ -135,22 +131,25 @@ def parse_lines(lines,deidentify=True):
         parsed_messages[message_id] = parsed_message.to_dict()
         phi_data_all[message_id] = phi_data
 
+    raw_messages[message_id] = current_message
+
     # Clean and adjust messages
     parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
     parsed_messages = create_message_summaries(parsed_messages)
     parsed_messages = adjust_datetime(parsed_messages)
+    parsed_messages = {message_id: replace_deidentified_fields(message) for message_id, message in parsed_messages.items()}
+    parsed_messages = {message_id: update_summary(id=message_id, message=message) for message_id, message in parsed_messages.items()}
 
-    raw_messages[message_id] = current_message
     return parsed_messages, raw_messages, phi_data_all  # Return PHI data as well
 
-def parse_file(file_path):
+def parse_file(file_path, deidentify=True, redact=True):
     with open(file_path, 'r') as hl7_file:
         lines = hl7_file.readlines()
     return parse_lines(lines, deidentify=True)
 
 def parse_content(file_content: str):
     lines = file_content.splitlines()
-    return parse_lines(lines, deidentify=True)
+    return parse_lines(lines, deidentify=True, redact=False)
 
 
 
@@ -160,8 +159,8 @@ def parse_content(file_content: str):
 def sort_messages_datetime(file_path):
     parsed, full, phi_data_all = parse_file(file_path)
 
-    print(len(parsed))
-    print(len(full), flush=True)
+    # print(len(parsed))
+    # print(len(full), flush=True)
 
     def get_msg_datetime(msg):
         try:
@@ -194,11 +193,11 @@ def sort_messages_datetime(file_path):
 
 
 # for initial redact
-def redact_hl7_hpi(file_path):
+def redact_hpi(file_path):
     parsed, full, phi_data_all = parse_file(file_path)
 
-    print(len(parsed))
-    print(len(full), flush=True)
+    # print(len(parsed))
+    # print(len(full), flush=True)
 
     # Iterate over each message id in phi_data_all
     for message_id, phi_data in phi_data_all.items():
@@ -225,7 +224,36 @@ def redact_hl7_hpi(file_path):
             redacted_file.write(message_str + "\n")
     
     # print(f"Redaction complete. {len(full)} messages processed.")
+    return
+
+def deidentify_hpi(file_path):
+
+    # Iterate over each message id in phi_data_all
+    from parsing import parse_file
+    from utils import replace_deidentified_fields, update_summary
+
+    parsed_messages, full , phi_data = parse_file(file_path=file_path)
+
+    for message_id, message in parsed_messages.items():
+        parsed_messages[message_id] = replace_deidentified_fields(message)
+        parsed_messages[message_id]['summary'] = update_summary(parsed_messages[message_id]['summary'])
+
+    # with open('app/data/messages_deidentified.txt', 'w') as deidentified_file:
+    #     for msg_id, msg in full.items():
+    #         if isinstance(msg, list):
+    #             message_str = "\r".join(msg)
+    #         elif isinstance(msg, dict):
+    #             message_str = json.dumps(msg, indent=2)
+    #         else:
+    #             message_str = msg
+    #         deidentified_file.write(message_str + "\n")
+
+    with open('app/data/messages_deidentified.json', 'w') as deidentified_json_file:
+        json.dump(parsed_messages, deidentified_json_file, indent=2)
+
+# Now parsed_messages contains the messages with the deidentified fields replaced.
 
 
 # sort_messages_datetime('app/data/big.hl7')
-# redact_hl7_hpi('app/data/big.hl7')
+# redact_hpi('app/data/big.hl7')
+# deidentify_hpi('app/data/big.hl7')
