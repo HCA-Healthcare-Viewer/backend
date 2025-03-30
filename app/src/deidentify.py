@@ -1,6 +1,6 @@
 import hashlib
 import datetime
-from constants import FIRST_NAMES, LAST_NAMES
+from constants import FIRST_NAMES, LAST_NAMES, STREET_PREFIXES, STREET_SUFFIXES, CITIES
 
 def consistent_bday(dob, identifier):
     """
@@ -36,7 +36,7 @@ def consistent_bday(dob, identifier):
     return new_dob, age
 
 
-def deidentify(first_name, last_name, dob, mrn):
+def deidentify_person(first_name, last_name, dob, mrn):
     # Create a unique identifier based on first name, last name, dob, and mrn
     identifier = f"{first_name}{last_name}{dob}{mrn}"
     
@@ -57,5 +57,63 @@ def deidentify(first_name, last_name, dob, mrn):
     return unique_first_name, unique_last_name.lower(), new_dob, age, mrn
 
 
+
+import hashlib
+
+def consistent_address(street, city, state, zip_code, identifier):
+    """
+    De-identify the street, city, and zip code while keeping the state intact. 
+    The de-identified values will be consistent based on the hashed identifier.
+    """
+    # Hash the identifier to get a deterministic "random" value
+    hash_value = hashlib.sha256(identifier.encode()).hexdigest()
+    
+    # Use parts of the hash to create pseudo-random but consistent address components
+    street_index = int(hash_value[:2], 16) % 1000  # Street number (0-999)
+    street_prefix_index = int(hash_value[2:4], 16) % len(STREET_PREFIXES)  # Prefix from predefined list
+    street_suffix_index = int(hash_value[4:6], 16) % len(STREET_SUFFIXES)  # Suffix from predefined list
+    city_index = int(hash_value[6:10], 16) % len(CITIES)  # City from predefined list
+    zip_index = int(hash_value[10:14], 16) % 90000 + 10000  # Zip code between 10000 and 99999
+
+
+    # Generate the new street and city names
+    new_street_suffix = STREET_SUFFIXES[street_suffix_index]
+    new_street_prefix = STREET_PREFIXES[street_prefix_index]
+    new_city = CITIES[city_index]
+
+
+
+    # Form the de-identified address
+    new_street = f"{street_index} {new_street_prefix} {new_street_suffix}"
+    new_zip_code = str(zip_index)  # Ensuring it's a string
+    
+    return new_street, new_city, state, new_zip_code
+
+
+def deidentify_address(street, city, state, zip_code, first_name, last_name, dob, mrn):
+    """
+    De-identify the address based on personal information while keeping the state unchanged.
+    """
+    # Create a unique identifier based on first name, last name, dob, mrn, and the original address
+    identifier = f"{first_name}{last_name}{dob}{mrn}{street}{city}{zip_code}"
+    
+    # De-identify the street, city, and zip code (keep state intact)
+    new_street, new_city, new_state, new_zip_code = consistent_address(street, city, state, zip_code, identifier)
+    
+    return new_street, new_city, new_state, new_zip_code
+
 # Example usage
-# first_name, last_name, dob, age, mrn = deidentify("John", "Doe", "1990-01-01", "123456789")
+first_name, last_name, dob, mrn = "John", "Doe", "1990-01-01", "123456789"
+
+print(f'Before de-identification: {first_name}, {last_name}, {dob}, {mrn}')
+unique_first_name, unique_last_name, new_dob, age, mrn = deidentify_person(first_name, last_name, dob, mrn)
+print(f"De-identified data: {unique_first_name}, {unique_last_name}, {new_dob}, {age}, {mrn}")
+
+
+print('\n')
+
+# Example usage:
+street, city, state, zip_code = "123 Main St", "Springfield", "IL", "62704"
+print(f'Before de-identification: {street}, {city}, {state}, {zip_code}')
+new_street, new_city, new_state, new_zip_code = deidentify_address(street, city, state, zip_code, first_name, last_name, dob, mrn)
+print(f"De-identified address: {new_street}, {new_city}, {new_state}, {new_zip_code}")
