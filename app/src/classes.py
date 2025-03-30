@@ -51,7 +51,11 @@ class HL7Message:
         return {segment_name: segment.to_dict() for segment_name, segment in self.segments.items()}
 
     def get_message_control_id(self):
-        # Extract Message Control ID from MSH-10 if available
         if "MSH" in self.segments and "MSH-10" in self.segments["MSH"].fields:
-            return self.segments["MSH"].fields["MSH-10"]["Field Value"]
+            return self.segments["MSH"].fields["MSH-10"]["Subfields"].get("MSH-10.1")
+        return None
+    
+    def get_MRN(self):
+        if "PID" in self.segments and "PID-3" in self.segments["PID"].fields:
+            return self.segments["PID"].fields["PID-3"]["Subfields"].get("PID-3.1", self.segments["PID"].fields["PID-3"]["Subfields"].get("PID-4.1"))
         return None
