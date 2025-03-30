@@ -4,7 +4,7 @@ from app.src.parsing import parse_content  # make sure to import the new functio
 router = APIRouter()
 
 @router.post("/get_json")
-async def get_json(file: UploadFile = File(...)):
+async def get_json(file: UploadFile = File(...), deidentify: bool = True):
     """
     Endpoint to return a JSON response after parsing an uploaded HL7 file.
     """
