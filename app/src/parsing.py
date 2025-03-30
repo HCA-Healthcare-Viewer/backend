@@ -1,12 +1,13 @@
 import json, time
+from datetime import datetime
 
-from app.src.classes import HL7Segment, HL7Message
-from app.src.constants import segments
-from app.src.utils import clean_null_entries
+# from app.src.classes import HL7Segment, HL7Message
+# from app.src.constants import segments
+# from app.src.utils import clean_null_entries
 
-# from classes import HL7Message, HL7Segment
-# from constants import segments
-# from utils import clean_null_entries
+from classes import HL7Message, HL7Segment
+from constants import segments
+from utils import clean_null_entries
 
 
 def parse_hl7_message(hl7_message):
@@ -42,7 +43,15 @@ def parse_hl7_message(hl7_message):
 
                     if field_name in expected_fields:
                         field_description = segments[current_segment.segment_name].get(field_name, "No Description")
-                        current_segment.add_field(field_name, field_description, field)
+
+                        if "Date/Time" in field_description:
+                            try:
+                                parsed_field = datetime.strptime(field, "%Y%m%d%H%M")
+                            except ValueError:
+                                parsed_field = field
+                            current_segment.add_field(field_name, field_description, parsed_field)
+                        else:
+                            current_segment.add_field(field_name, field_description, field)
 
                 message_obj.add_segment(current_segment.segment_name, current_segment)
 
@@ -61,8 +70,7 @@ def parse_hl7_file(file_path):
                     full_message = "\n".join(current_message)
                     parsed_message = parse_hl7_message(full_message)
                     
-                    # Use the Message Control ID or a fallback ID
-                    message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages)+1}"
+                    message_id = parsed_message.get_MRN() or f"message_{len(parsed_messages)+1}"
                     parsed_messages[message_id] = parsed_message.to_dict()
 
                 # Start a new message
@@ -93,14 +101,14 @@ def custom_dumps(obj, indent=4):
 
 start_time = time.time()
 print("Parsing HL7 messages...", flush=True)
-parsed_hl7_messages = parse_hl7_file('app/data/source_hl7_messages_v2.hl7')
-# for message_id, message in parsed_hl7_messages.items():
-#     parsed_hl7_messages[message_id] = clean_null_entries(message)
+parsed_hl7_messages = parse_hl7_file('app/data/small.hl7')
+for message_id, message in parsed_hl7_messages.items():
+    parsed_hl7_messages[message_id] = clean_null_entries(message)
 print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
 
 # Write to JSON file with IDs as keys
 start_time = time.time()
 print("Writing parsed HL7 messages to JSON...", flush=True)
-with open('app/data/parsed_messages.json', 'w') as json_file:
+with open('app/data/small_parsed_messages.json', 'w') as json_file:
     json.dump(parsed_hl7_messages, json_file, indent=2)
 print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
