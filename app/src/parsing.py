@@ -52,13 +52,16 @@ def parse_message(hl7_message):
 def parse_lines(lines):
     parsed_messages = {}
     current_message = []
-    
+    raw_messages = {}
+
     for line in lines:
         if line.startswith("MSH"):
             if current_message:
                 full_message = "\n".join(current_message)
+
                 parsed_message = parse_message(full_message)
                 message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
+                raw_messages[message_id] = full_message
                 parsed_messages[message_id] = parsed_message.to_dict()
             current_message = [line.strip()]
         else:
@@ -66,14 +69,17 @@ def parse_lines(lines):
     
     if current_message:
         full_message = "\n".join(current_message)
+
         parsed_message = parse_message(full_message)
         message_id = parsed_message.get_message_control_id() or f"message_{len(parsed_messages) + 1}"
         parsed_messages[message_id] = parsed_message.to_dict()
     
-        parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
-        parsed_messages = create_message_summaries(parsed_messages)
-        parsed_messages = adjust_datetime(parsed_messages)
-    return parsed_messages
+    parsed_messages = {message_id: clean_null_entries(message) for message_id, message in parsed_messages.items()}
+    parsed_messages = create_message_summaries(parsed_messages)
+    parsed_messages = adjust_datetime(parsed_messages)
+
+    raw_messages[message_id] = current_message
+    return parsed_messages, raw_messages
 
 def parse_file(file_path):
     with open(file_path, 'r') as hl7_file:
@@ -96,16 +102,52 @@ def custom_dumps(obj, indent=4):
 
     return json.dumps(recursive_dict(obj), indent=indent)
 
+from datetime import datetime
+
+def sort_messages_datetime(file_path):
+    # Parse the HL7 file
+    parsed, full = parse_file(file_path)
+
+    print(len(parsed))
+    print(len(full), flush=True)
+
+    # Helper function to get the datetime from the message
+    def get_msg_datetime(msg):
+        try:
+            # Extract the 'msg_datetime' field from the 'summary'
+            msg_datetime_str = msg['summary'].get('MSG_DATETIME', None)
+
+            # If the datetime field exists, parse it to a datetime object
+            if msg_datetime_str:
+                return datetime.strptime(msg_datetime_str, "%Y-%m-%d %H:%M")  # Adjust format as needed
+        except (ValueError, KeyError) as e:
+            print(f"Error parsing datetime for message: {e}", flush=True)
+        
+        return datetime.min  # Return a minimum datetime value if parsing fails
+
+    # Sort parsed messages by 'summary' -> 'msg_datetime'
+    sorted_messages = sorted(parsed.items(), key=lambda item: get_msg_datetime(item[1]))
+
+    # Extract message IDs in the sorted order
+    in_order = [msg_id for msg_id, msg in sorted_messages]
+
+    # take full messages and sort them by the order of in_order
+    sorted_full = {msg_id: full[msg_id] for msg_id in in_order if msg_id in full}
+
+    print(len(sorted_full))
+
+sort_messages_datetime('app/data/big.hl7')
 
 
-start_time = time.time()
-print("Parsing HL7 messages...", flush=True)
-parsed_hl7_messages = parse_file('app/data/big.hl7')
-print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
 
-# Write to JSON file with IDs as keys
-start_time = time.time()
-print("Writing parsed HL7 messages to JSON...", flush=True)
-with open('app/data/big_parsed_messages.json', 'w') as json_file:
-    json.dump(parsed_hl7_messages, json_file, indent=2)
-print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
+# start_time = time.time()
+# print("Parsing HL7 messages...", flush=True)
+# parsed_hl7_messages = parse_file('app/data/big.hl7')
+# print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
+
+# # Write to JSON file with IDs as keys
+# start_time = time.time()
+# print("Writing parsed HL7 messages to JSON...", flush=True)
+# with open('app/data/big_parsed_messages.json', 'w') as json_file:
+#     json.dump(parsed_hl7_messages, json_file, indent=2)
+# print("Writing completed in", time.time() - start_time, "seconds.", flush=True)

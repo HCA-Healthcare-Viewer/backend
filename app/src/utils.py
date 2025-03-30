@@ -41,7 +41,16 @@ def create_message_summaries(messages):
             "MSG_TYPE": message["MSH"]["fields"].get("MSH-9", {}).get("Subfields", {}).get("MSH-9.1", None),
             "MSG_DATETIME": message["MSH"]["fields"].get("MSH-7", {}).get("Subfields", {}).get("MSH-7.1", None),
         }
+        summary['MSG_DATETIME'] = adjust_datetime_str(summary['MSG_DATETIME']) if summary['MSG_DATETIME'] else None
+
+
         messages[message_id]['summary'] = summary
+
+        #reorder the segments to have 'summary' at the front
+        segments = list(messages[message_id].keys())
+        segments.remove('summary')
+        segments.insert(0, 'summary')
+        messages[message_id] = {segment: messages[message_id][segment] for segment in segments}
 
     return messages
 
@@ -72,10 +81,10 @@ def adjust_datetime(messages):
                             elif len(value) == 12:
                                 # Format: YYYYMMDDHHMM
                                 formatted_date = datetime.strptime(value, "%Y%m%d%H%M").strftime("%Y-%m-%d %H:%M")
-
-                            elif len(value) == 14:
-                                # Format: YYYYMMDDHHMMSS
-                                formatted_date = datetime.strptime(value, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+                            elif len(value) == 17:
+                                # Format: YYYYMMDDHHMM-ZZZZ
+                                formatted_date = datetime.strptime(value, "%Y%m%d%H%M%z").strftime("%Y-%m-%d %H:%M")
+                                print(f"Formatted date: {formatted_date}", flush=True)
                             else: formatted_date = value
 
                             # Update the subfield with the formatted date
@@ -86,3 +95,21 @@ def adjust_datetime(messages):
                         print(f"Error parsing date/time for {field_description}: {field_subfields}", flush=True)
                         continue
     return messages
+
+def adjust_datetime_str(datetime_str):
+    try:
+        if len(datetime_str) == 8:
+            # Format: YYYYMMDD
+            return datetime.strptime(datetime_str, "%Y%m%d").strftime("%Y-%m-%d")
+        elif len(datetime_str) == 12:
+            # Format: YYYYMMDDHHMM
+            return datetime.strptime(datetime_str, "%Y%m%d%H%M").strftime("%Y-%m-%d %H:%M")
+        elif len(datetime_str) == 17:
+            # Format: YYYYMMDDHHMM-ZZZZ
+            return datetime.strptime(datetime_str, "%Y%m%d%H%M%z").strftime("%Y-%m-%d %H:%M")
+        else:
+            return datetime_str  # Return as is if format is not recognized
+    except ValueError as e:
+        print(f"Error parsing date/time: {e}", flush=True)
+        return datetime_str  # Return as is in case of error
+    
