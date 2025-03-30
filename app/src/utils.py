@@ -158,8 +158,8 @@ def get_deidentified_person(message):
     }
 
 def get_deidentified_address(message):
-    # from app.src.deidentify import deidentify
-    from deidentify import deidentify_address
+    from app.src.deidentify import deidentify
+    # from deidentify import deidentify_address
 
     """
     Extract and deidentify relevant fields from the HL7 message.
