@@ -52,7 +52,7 @@ def deidentify_person(first_name, last_name, dob, mrn):
     first_name_index = int(sha256_hash[:8], 16) % len(FIRST_NAMES)
     last_name_index = int(sha256_hash[8:14], 16) % len(LAST_NAMES)
     mrn = int(sha256_hash[14:16], 16) % 1000000  # Assuming MRN is a 6-digit number
-    
+
     
     # Retrieve the unique first and last name
     unique_first_name = FIRST_NAMES[first_name_index]
@@ -64,9 +64,6 @@ def deidentify_person(first_name, last_name, dob, mrn):
 
     return unique_first_name, unique_last_name.lower(), new_dob, age, mrn
 
-
-
-import hashlib
 
 def consistent_address(street, city, state, zip_code, identifier):
     """
