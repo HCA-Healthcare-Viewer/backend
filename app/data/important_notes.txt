@@ -13,8 +13,7 @@ Important Segments:
 		PID-3	: Patient ID List, MRN (used for summary/preview and filtering)
 		PID-5	: Patient Name
 
-			PID-5.1 	: Last Name
+			PID-5.1 	: Last Name (summary)
 			PID-5.2		: Given Name
 			PID-5.7 	: Middle Initial
 
-		
