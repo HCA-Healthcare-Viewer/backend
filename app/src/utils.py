@@ -118,3 +118,50 @@ def adjust_datetime_str(datetime_str):
         print(f"Error parsing date/time: {e}", flush=True)
         return datetime_str  # Return as is in case of error
     
+
+def get_deidentified_person(message):
+    # from app.src.deidentify import deidentify
+    from deidentify import deidentify_person
+
+    """
+    Extract and deidentify relevant fields from the HL7 message.
+    """
+    # Extract relevant fields for deidentification
+    first_name = message["PID"]["fields"].get("PID-5", {}).get("Subfields", {}).get("PID-5.2", None)
+    last_name = message["PID"]["fields"].get("PID-5", {}).get("Subfields", {}).get("PID-5.1", None)
+    dob = message["PID"]["fields"].get("PID-7", {}).get("Subfields", {}).get("PID-7.1", None)
+    mrn = message["PID"]["fields"].get("PID-18", {}).get("Subfields", {}).get("PID-18.1", None)
+
+    # Deidentify the data
+    unique_first_name, unique_last_name, new_dob, age, mrn = deidentify_person(first_name, last_name, dob, mrn)
+
+    return {
+        "unique_first_name": unique_first_name,
+        "unique_last_name": unique_last_name,
+        "new_dob": new_dob,
+        "age": age,
+        "mrn": mrn
+    }
+
+def get_deidentified_address(message):
+    # from app.src.deidentify import deidentify
+    from deidentify import deidentify_address
+
+    """
+    Extract and deidentify relevant fields from the HL7 message.
+    """
+    # Extract relevant fields for deidentification
+    street = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.1", None)
+    city = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.3", None)
+    state = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.4", None)
+    zip_code = message["PID"]["fields"].get("PID-11", {}).get("Subfields", {}).get("PID-11.5", None)
+
+    # Deidentify the data
+    unique_street, unique_city, unique_state, unique_zip_code = deidentify_address(street, city, state, zip_code)
+
+    return {
+        "unique_street": unique_street,
+        "unique_city": unique_city,
+        "unique_state": unique_state,
+        "unique_zip_code": unique_zip_code
+    }
