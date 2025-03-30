@@ -99,16 +99,16 @@ def custom_dumps(obj, indent=4):
 
     return json.dumps(recursive_dict(obj), indent=indent)
 
-start_time = time.time()
-print("Parsing HL7 messages...", flush=True)
-parsed_hl7_messages = parse_hl7_file('app/data/small.hl7')
-for message_id, message in parsed_hl7_messages.items():
-    parsed_hl7_messages[message_id] = clean_null_entries(message)
-print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
+# start_time = time.time()
+# print("Parsing HL7 messages...", flush=True)
+# parsed_hl7_messages = parse_hl7_file('app/data/small.hl7')
+# for message_id, message in parsed_hl7_messages.items():
+#     parsed_hl7_messages[message_id] = clean_null_entries(message)
+# print("Parsing completed in", time.time() - start_time, "seconds.", flush=True)
 
-# Write to JSON file with IDs as keys
-start_time = time.time()
-print("Writing parsed HL7 messages to JSON...", flush=True)
-with open('app/data/small_parsed_messages.json', 'w') as json_file:
-    json.dump(parsed_hl7_messages, json_file, indent=2)
-print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
+# # Write to JSON file with IDs as keys
+# start_time = time.time()
+# print("Writing parsed HL7 messages to JSON...", flush=True)
+# with open('app/data/small_parsed_messages.json', 'w') as json_file:
+#     json.dump(parsed_hl7_messages, json_file, indent=2)
+# print("Writing completed in", time.time() - start_time, "seconds.", flush=True)
