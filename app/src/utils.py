@@ -1,7 +1,5 @@
 from datetime import datetime
 
-
-
 def clean_null_entries(message):
     """Recursively clean a JSON object by removing entries with null/empty Field Value, Subfields,
        Field Value with only '^', and finally remove the Field Value after cleaning subfields."""
@@ -43,7 +41,6 @@ def create_message_summaries(messages):
         }
         summary['MSG_DATETIME'] = adjust_datetime_str(summary['MSG_DATETIME']) if summary['MSG_DATETIME'] else None
 
-
         messages[message_id]['summary'] = summary
 
         #reorder the segments to have 'summary' at the front
@@ -74,6 +71,11 @@ def adjust_datetime(messages):
                         value = field_subfields.get(f"{field_name}.1") or next(
                             (v for k, v in field_subfields.items() if ".1" in k), None)
 
+                        # Skip parsing if the value is redacted (i.e., all asterisks)
+                        if value and value == "*" * len(value):
+                            # print(f"Skipping redacted datetime field: {field_name} in message {message_id}", flush=True)
+                            continue
+
                         if value:
                             if len(value) == 8:
                                 # Format: YYYYMMDD
@@ -84,7 +86,8 @@ def adjust_datetime(messages):
                             elif len(value) == 17:
                                 # Format: YYYYMMDDHHMM-ZZZZ
                                 formatted_date = datetime.strptime(value, "%Y%m%d%H%M%z").strftime("%Y-%m-%d %H:%M")
-                            else: formatted_date = value
+                            else:
+                                formatted_date = value
 
                             field_subfields[f"{field_name}.1"] = formatted_date
                             field_details["Subfields"] = field_subfields
@@ -94,7 +97,11 @@ def adjust_datetime(messages):
                         continue
     return messages
 
+
 def adjust_datetime_str(datetime_str):
+    if set(datetime_str) == {"*"}:
+        return datetime_str  # Return as is if redacted
+
     try:
         if len(datetime_str) == 8:
             # Format: YYYYMMDD
