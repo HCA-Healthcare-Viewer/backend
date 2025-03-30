@@ -101,7 +101,7 @@ def parse_message(hl7_message, redact_phi=False, deidentify=True):
     return message_obj, phi_data
 
 
-def parse_lines(lines,deidentify=True, redact_phi=False):
+def parse_lines(lines, deidentify=True, redact_phi=False):
     parsed_messages = {}
     current_message = []
     raw_messages = {}
@@ -145,11 +145,11 @@ def parse_lines(lines,deidentify=True, redact_phi=False):
 def parse_file(file_path, deidentify=True, redact=True):
     with open(file_path, 'r') as hl7_file:
         lines = hl7_file.readlines()
-    return parse_lines(lines, deidentify=True)
+    return parse_lines(lines, deidentify=deidentify, redact_phi=redact)
 
 def parse_content(file_content: str, deidentify=True, redact=True):
     lines = file_content.splitlines()
-    return parse_lines(lines, deidentify=True)
+    return parse_lines(lines, deidentify=deidentify, redact_phi=redact)
 
 
 

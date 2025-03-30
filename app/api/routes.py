@@ -11,7 +11,7 @@ async def get_json(file: UploadFile = File(...), deidentify: bool = True):
     try:
         file_contents = await file.read()
         file_text = file_contents.decode("utf-8")  # adjust encoding if needed
-        parsed_data, _ , _ = parse_content(file_text, deidentify)
+        parsed_data, _ , _ = parse_content(file_text, deidentify=deidentify)
         return parsed_data
 
     except UnicodeDecodeError:

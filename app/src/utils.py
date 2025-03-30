@@ -134,8 +134,8 @@ def adjust_datetime_str(datetime_str):
     
 
 def get_deidentified_person(message):
-    # from app.src.deidentify import deidentify
-    from deidentify import deidentify_person
+    from app.src.deidentify import deidentify_person
+    # from deidentify import deidentify_person
 
     """
     Extract and deidentify relevant fields from the HL7 message.
@@ -158,7 +158,7 @@ def get_deidentified_person(message):
     }
 
 def get_deidentified_address(message):
-    from app.src.deidentify import deidentify
+    from app.src.deidentify import deidentify_address
     # from deidentify import deidentify_address
 
     """
