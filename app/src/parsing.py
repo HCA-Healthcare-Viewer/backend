@@ -259,12 +259,12 @@ def deidentify_hpi(file_path):
                 message_str = msg
             deidentified_file.write(message_str + "\n")
 
-    with open('app/data/messages_deidentified.json', 'w') as deidentified_json_file:
-        json.dump(parsed_messages, deidentified_json_file, indent=2)
+    # with open('app/data/messages_deidentified.json', 'w') as deidentified_json_file:
+    #     json.dump(parsed_messages, deidentified_json_file, indent=2)
 
 # Now parsed_messages contains the messages with the deidentified fields replaced.
 
 
 # sort_messages_datetime('app/data/big.hl7')
 # redact_hpi('app/data/big.hl7')
-deidentify_hpi('app/data/big.hl7')
+# deidentify_hpi('app/data/big.hl7')
